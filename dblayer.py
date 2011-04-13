@@ -55,20 +55,13 @@ class LUN(Base):
 class NAS(Base):
     """ NAS base class """
     __tablename__  = 'NAS'
+    name = Column('Name', String(25), nullable=False)
+
     serial_number = Column('SerialNumber', String(25), primary_key=True, nullable=False)
     control_station_1_ip = Column('CS01IP', String(25))
     control_station_2_ip = Column('CS02IP', String(25))
 
-class Datamover(Base):
-    """ Datamover object """
-    __tablename__ = 'DataMover'
-    
-    mover_id = Column('rid', Integer, primary_key = True, nullable=False, autoincrement=True)
-    name = Column('Name', String(25), nullable=False)
-    mover_type = Column('Type', String(1))
-    serial_number = Column('NASSerialNumber', String(25), ForeignKey('NAS.SerialNumber'))
-    nas = relation('NAS', backref='datamovers')
-    
+
 class NASDisk(Base):
     """ Disk Object """
     __tablename__ = "NasDisk"
@@ -80,7 +73,7 @@ class NASDisk(Base):
     lun = relation('LUN', backref='nas_luns')
     type = Column('Type',String(25))
     volumeid = Column('VolumeID', Integer, ForeignKey('Volumes.ID'))
-    volume = relation('Volumes', backref='disk')
+    volume = relation('Volume', backref='disk')
     serial_number = Column('NASSerialNumber', String(25), ForeignKey('NAS.SerialNumber'))
     nas = relation('NAS', backref='disks')
     
@@ -109,7 +102,7 @@ class Volume(Base):
 ClientPoolRelationship = Table(
     'ClientPools', Base.metadata,
     Column('PoolID', Integer, ForeignKey('Pools.ID')),
-    Column('VolumeID', Integer, ForeignKey('Volumes.ID'))
+    Column('ClientID', Integer, ForeignKey('Client.ClientID'))
     )
     
 class Pool(Base):
@@ -132,10 +125,8 @@ class Client(Base):
     type = Column('Type',String(25))
     ro_host_id = Column('ROHostID', String(60), ForeignKey('DataMover.rid'))
     rw_host_id = Column('RWHostID', String(60), ForeignKey('DataMover.rid'))
-    rw_host = relation('Datamover',backref="rw_clients")
-    ro_host = relation('Datamover',backref="ro_clients")
     parent_client_id = Column('ParentClientID',Integer,ForeignKey('Client.ClientID'))
-    parent = relation('Client', backref='children')
+    parent = relation('Client', backref=backref('children', remote_side="Client.client_id"))
     total_size = Column('totalSize', BigInteger)
     free_size = Column('FreeSize', BigInteger)
     used_size = Column('UsedSize', BigInteger)
@@ -143,6 +134,18 @@ class Client(Base):
     volume = relation('Volume', backref='clients')
     pools = relation('Pool', secondary=ClientPoolRelationship, backref='clients')
 
+class Datamover(Base):
+    """ Datamover object """
+    __tablename__ = 'DataMover'
+    
+    mover_id = Column('rid', Integer, primary_key = True, nullable=False, autoincrement=True)
+    name = Column('Name', String(25), nullable=False)
+    mover_type = Column('Type', String(10))
+    serial_number = Column('NASSerialNumber', String(25), ForeignKey('NAS.SerialNumber'), nullable=False)
+    nas = relation('NAS', backref='datamovers')
+    ro_clients = relation('Client',primaryjoin=Client.ro_host_id==mover_id,backref="ro_host")
+    rw_clients = relation('Client',primaryjoin=Client.rw_host_id==mover_id,backref="rw_host")
+    
 class CIFSserver(Base):
     """ CIFS server object """
     __tablename__ = 'CifsServers'
@@ -156,9 +159,10 @@ class CIFSserver(Base):
 class Export(Base):
     """ Export Object """
     __tablename__ = 'Export'
-    cifs_server_id = Column('CifsServerName', String(30), nullable=False, primary_key=True)
-    cifs_server = relation('CIFServer', backref='exports')
+    cifs_server_id = Column('CifsServerName', String(30), ForeignKey('CifsServers.Name'))
+    cifs_server = relation('CIFSserver', backref='exports')
     share_name = Column('ShareName', String(100), nullable=False, primary_key=True)
     share_path = Column('ClientShare', String(100), nullable=False)
     client_id = Column('ClientID', Integer, ForeignKey('Client.ClientID'))
     client = relation('Client', backref='exports')
+    
