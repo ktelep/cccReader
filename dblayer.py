@@ -9,48 +9,31 @@ class Frame(Base):
 
     rid = Column('FrameID', Integer, primary_key=True, autoincrement=True)
     serial_number = Column('SerialNumber', String(25))
-    model = Column('Model', String(25))
-    spa_ip = Column('SPA', String(100))
-    spb_ip = Column('SPB', String(100))
-    cache_hwm = Column('CacheHWM', Integer)
-    cache_lwm = Column('CacheLWM', Integer)
-    wwn = Column('WWN', String(255))
 
-    def __init__(self):
-        pass
+class RAIDGroup(Base):
+    __tablename__ = 'RAIDGroup'
 
-    def __repr__(self):
-        repr_items = [self.serial_number, self.model, self.spa_ip, self.spb_ip]
-        repr_string = "', '".join(tuple(map(str, repr_items)))
-        return "Frame<'%s'>" % repr_string
+    rid = Column('RaidID', Integer, primary_key=True, autoincrement=True)
+    group_number = Column('RaidGroupID', Integer)
+    luns = relation('LUN', backref='raid_group')
+
+class Drive(Base):
+    __tablename__ = 'Drive'
+
+    rid = Column('DriveID', Integer, primary_key=True, autoincrement=True)
+    location = Column('Location', String(25))
+    raidgroup_id = Column('RaidID', Integer, ForeignKey('RAIDGroup.RaidID'))
+    frame_id = Column('FrameID', Integer, ForeignKey('Frame.FrameID'))
+    raidgroup = relation('RAIDGroup', backref='drives')
+    frame = relation('Frame', backref='drives')
+
 
 class LUN(Base):
     __tablename__ = 'LUNS'
 
     wwn = Column('WWN', String(50), primary_key=True)
     alu = Column('ALU', Integer)
-    name = Column('Name', String(50))
-    state = Column('State', String(50))
-    capacity = Column('Capacity', BigInteger)
-    current_owner = Column('Ownership', String(5))
-    default_owner = Column('DefaultOwner', String(5))
-    is_read_cache_enabled = Column('ReadCacheEnabled', SMALLINT)
-    is_write_cache_enabled = Column('WriteCacheEnabled', SMALLINT)
-    is_meta_head = Column('isMetaHead', SMALLINT)
-    is_meta_member = Column('isMetaMember', SMALLINT)
-    meta_head = Column('MetaHead', String(50))
-    raidgroup_id = Column('RaidID', Integer)
-    storage_group_wwn = Column('StorageGroup', Integer)
-    hlu = Column('HLU', Integer)
-
-
-    def __init__(self):
-        pass
-
-    def __repr__(self):
-        return "LUN<'%s','%s','%s','%s'>" % (
-                self.wwn, str(self.alu), self.name, str(self.capacity))
-
+    raidgroup_id = Column('RaidID', Integer, ForeignKey('RAIDGroup.RaidID'))
 
 class NAS(Base):
     """ NAS base class """
@@ -161,7 +144,8 @@ class Export(Base):
     __tablename__ = 'Export'
     cifs_server_id = Column('CifsServerName', String(30), ForeignKey('CifsServers.Name'))
     cifs_server = relation('CIFSserver', backref='exports')
-    share_name = Column('ShareName', String(100), nullable=False, primary_key=True)
+    share_id = Column('id', Integer, autoincrement=True, primary_key=True)
+    share_name = Column('ShareName', String(100), nullable=False)
     share_path = Column('ClientShare', String(100), nullable=False)
     client_id = Column('ClientID', Integer, ForeignKey('Client.ClientID'))
     client = relation('Client', backref='exports')
