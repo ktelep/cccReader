@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python26
 
 import dblayer as db_layer
 import re
@@ -265,7 +265,7 @@ class cccReader():
             fs_name = fs.findtext(self._build_path('./Name'))
             fs_type = fs.findtext(self._build_path('./Type'))
 
-            if client.type=='ckpt':
+            if fs_type=='ckpt':
                 parent_name = fs.findtext(self._build_path('./Backup_Of'))
                 checkpoint_row = self.dbconn.query(db_layer.Client).filter(db_layer.Client.client_id==self.fs_map[fs_name]).one()
                 parent_row = self.dbconn.query(db_layer.Client).filter(db_layer.Client.client_id==self.fs_map[parent_name]).one()
@@ -279,19 +279,22 @@ class cccReader():
             shares = mover.findall(self._build_path('./CIFS/Share'))
             if shares is not None:
                 for share in shares:
-                    new_export = db_layer.Export()
-                    new_export.share_name = share.findtext(self._build_path('./Name'))
-                    new_export.share_path = share.findtext(self._build_path('./Path_Standard'))
-                    new_export.cifs_server_id = share.findtext(self._build_path('./Servers'))
+                    cifs_servers = share.findtext(self._build_path('./Servers')).split()
+                    for server in cifs_servers:
+                        new_export = db_layer.Export()
+                        new_export.share_name = share.findtext(self._build_path('./Name'))
+                        new_export.share_path = share.findtext(self._build_path('./Path_Standard'))
+                        new_export.cifs_server_id = server
+ 
 
-                    # Now we hunt down the actual FS (See Stack Overflow 4453602)
-                    temp_path = new_export.share_path
-                    while temp_path not in self.mountpoints and temp_path != '/':
-                        temp_path = os.path.dirname(temp_path)
+                        # Now we hunt down the actual FS (See Stack Overflow 4453602)
+                        temp_path = new_export.share_path
+                        while temp_path not in self.mountpoints and temp_path != '/':
+                            temp_path = os.path.dirname(temp_path)
 
-                    new_export.client_id = self.fs_map[self.mountpoints[temp_path]]
+                        new_export.client_id = self.fs_map[self.mountpoints[temp_path]]
 
-                    self.dbconn.add(new_export)
+                        self.dbconn.add(new_export)
                     self.dbconn.commit()
 
  
@@ -321,7 +324,11 @@ class cccReader():
             storage_dev = int(storage_dev, 16)  # Convert from Hex String to Integer in one swoop
 
             # Check for a LUNs table, if we dont' have it, then we don't create the 'LUN' relations
-            query = self.dbconn.query(db_layer.LUN).filter(db_layer.Frame.serial_number==storage_frame).filter(db_layer.LUN.alu==storage_dev).one()
+            query = self.dbconn.query(db_layer.LUN).filter(db_layer.Frame.serial_number==storage_frame).\
+                            join(db_layer.RAIDGroup).\
+                            join(db_layer.Drive).\
+                            join(db_layer.Frame).\
+                            filter(db_layer.LUN.alu==storage_dev).one()
             new_disk.lun_wwn_id = query.wwn
             self.dbconn.add(new_disk)
             self.dbconn.commit()
@@ -336,5 +343,7 @@ class cccReader():
         self._locate_nas_disk()
 
 if __name__ == "__main__":
-    nas = cccReader(sys.argv[1],db_engine='sqlite:////tmp/slough.db', db_debug=True)
+    nas = cccReader(sys.argv[1],db_engine='sqlite:////tmp/slough.db', db_debug=False)
+    #nas = cccReader(sys.argv[1],db_engine='mssql+pymssql://zzstorage:Kur71zth3M%40n@ann330db01.ftitools.com/storage_staging', db_debug=True)
+
     nas.parse()

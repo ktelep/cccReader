@@ -74,7 +74,7 @@ class Volume(Base):
     id = Column('ID', Integer, primary_key=True, nullable=False)
     type = Column('Type', String(25))
     name = Column('Name', String(25))
-    poolid = Column('pool', Integer, ForeignKey('Pools.ID'))
+    poolid = Column('PoolID', Integer, ForeignKey('Pools.ID'))
     parents = relation(
                     'Volume',secondary=VolumeRelationship,
                     primaryjoin=VolumeRelationship.c.VolumeID==id,
@@ -106,8 +106,8 @@ class Client(Base):
     name = Column('name', String(50), nullable=False)
     vpfs_id = Column('VPFSID', String(50))
     type = Column('Type',String(25))
-    ro_host_id = Column('ROHostID', String(60), ForeignKey('DataMover.rid'))
-    rw_host_id = Column('RWHostID', String(60), ForeignKey('DataMover.rid'))
+    ro_host_id = Column('RODMID', String(60), ForeignKey('DataMover.DataMoverID'))
+    rw_host_id = Column('RWDMID', String(60), ForeignKey('DataMover.DataMoverID'))
     parent_client_id = Column('ParentClientID',Integer,ForeignKey('Client.ClientID'))
     parent = relation('Client', backref=backref('children', remote_side="Client.client_id"))
     total_size = Column('totalSize', BigInteger)
@@ -121,7 +121,7 @@ class Datamover(Base):
     """ Datamover object """
     __tablename__ = 'DataMover'
     
-    mover_id = Column('rid', Integer, primary_key = True, nullable=False, autoincrement=True)
+    mover_id = Column('DataMoverID', Integer, primary_key = True, nullable=False, autoincrement=True)
     name = Column('Name', String(25), nullable=False)
     mover_type = Column('Type', String(10))
     serial_number = Column('NASSerialNumber', String(25), ForeignKey('NAS.SerialNumber'), nullable=False)
@@ -136,7 +136,7 @@ class CIFSserver(Base):
     name = Column('Name', String(30), nullable=False, primary_key=True)
     ip = Column('IP', String(15))
     domain = Column('Domain', String(40))
-    datamover_id = Column('DatamoverID', ForeignKey('DataMover.rid'))
+    datamover_id = Column('DatamoverID', ForeignKey('DataMover.DataMoverID'))
     datamover = relation('Datamover', backref='cifs_servers')
     
 class Export(Base):
@@ -144,7 +144,7 @@ class Export(Base):
     __tablename__ = 'Export'
     cifs_server_id = Column('CifsServerName', String(30), ForeignKey('CifsServers.Name'))
     cifs_server = relation('CIFSserver', backref='exports')
-    share_id = Column('id', Integer, autoincrement=True, primary_key=True)
+    share_id = Column('ExportID', Integer, autoincrement=True, primary_key=True)
     share_name = Column('ShareName', String(100), nullable=False)
     share_path = Column('ClientShare', String(100), nullable=False)
     client_id = Column('ClientID', Integer, ForeignKey('Client.ClientID'))
